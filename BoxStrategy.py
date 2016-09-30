@@ -29,14 +29,14 @@ import threading
 
 importError = False
 
-# Check My Documments location
+# Check My Documents location
 from ctypes import wintypes
 
 CSIDL_PERSONAL = 5  # My Documents
 SHGFP_TYPE_CURRENT = 0  # Get default value
 buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
 ctypes.windll.shell32.SHGetFolderPathW(None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf)
-ac.log('BoxRadio: Log path: ' + buf.value)
+ac.log('BoxStrategy: Log path: ' + buf.value)
 
 
 
@@ -100,15 +100,22 @@ def getNotification():
 
 
 def acUpdate(deltaT):
-    global AppInitialised, status, session, numberOfLaps, InPit, FuelMax, FuelRate, TireRate
+    global AppInitialised, status, session, numberOfLaps, InPit, FuelMax, FuelRate, TireRate, car_model, track
+    global TireCompund, sector
 
     status = info.graphics.status
     session = info.graphics.session
     numberOfLaps = info.graphics.numberOfLaps
     InPit = info.graphics.isInPit
     TireCompund = info.graphics.tyreCompund
+    sector = info.graphics.currentSectorIndex
 
     if session != 2:
+        # Initialize record code
+        laptime = 0
+        counter = 0
+        # Start record
+        
 
     if session == 2:
 
@@ -117,6 +124,9 @@ def acUpdate(deltaT):
     if debug:
         ac.setText(debuglabel, "Session: " + repr(session) +
                     "\nNumber of laps: " + repr(numberOfLaps) +
+                    "\nCar: " + str(car_model) +
+                    "\nTrack: " + str(track) +
+                    "\nSector: " + str(sector) +
                     #"\nCompleted Laps: " + repr(completedLaps) +
                     #"\nOvertakes: " + repr(count_overtake) +
                     #"\nSession Time: " + repr(sessionTime) +
@@ -140,28 +150,29 @@ def acUpdate(deltaT):
             #ac.setValue(Preset1, 1)
             FuelRate = info.static.aidFuelRate
             TireRate = info.static.aidTireRate
+            car_model = info.static.carModel
+            track = info.static.ttack
             AppInitialised = True
 
 
     except Exception as e:
-        ac.log("BoxRadio: Error in acUpdate: %s" % e)
+        ac.log("BoxStrategy: Error in acUpdate: %s" % e)
 
 
 def WritePreset():
-    global Car, FixBody, FixEngine, FixSuspen, Preset, Tires, Gas
+    global track, car_model, TireCompound
 
     PresetConfig = configparser.ConfigParser()
-    PresetConfig.read('apps\python\BoxRadio\BoxRadio.ini')
-    Car = PresetConfig['PRESET' + str(Preset) + '_' + ac.getCarName(0)]['car']
+    PresetConfig.read('apps\python\BoxStrategy\BoxStrategy.ini')
     if Tires != 'NoChange' or Gas != 0 or FixBody != 'no' or FixEngine != 'no' or FixSuspen != 'no' or Car != ac.getCarName(
             0):
-        PresetConfig.set('PRESET' + str(Preset) + '_' + str(Car), 'car', ac.getCarName(0))
-        PresetConfig.set('PRESET' + str(Preset) + '_' + str(Car), 'tyre', Tires)
-        PresetConfig.set('PRESET' + str(Preset) + '_' + str(Car), 'fuel', str(Gas))
-        PresetConfig.set('PRESET' + str(Preset) + '_' + str(Car), 'body', FixBody)
-        PresetConfig.set('PRESET' + str(Preset) + '_' + str(Car), 'engine', FixEngine)
-        PresetConfig.set('PRESET' + str(Preset) + '_' + str(Car), 'suspen', FixSuspen)
-        with open('apps\python\BoxRadio\BoxRadio.ini', 'w') as configfile:
+        PresetConfig.set(str(track)  + '_' + str(car_model) + '_' + str(TireCompund) , 'car', ac.getCarName(0))
+        PresetConfig.set(str(track)  + '_' + str(car_model) + '_' + str(TireCompund) , 'tyre', Tires)
+        PresetConfig.set(str(track)  + '_' + str(car_model) + '_' + str(TireCompund) , 'fuel', str(Gas))
+        PresetConfig.set(str(track)  + '_' + str(car_model) + '_' + str(TireCompund) , 'body', FixBody)
+        PresetConfig.set(str(track)  + '_' + str(car_model) + '_' + str(TireCompund) , 'engine', FixEngine)
+        PresetConfig.set(str(track)  + '_' + str(car_model) + '_' + str(TireCompund) , 'suspen', FixSuspen)
+        with open('apps\python\BoxStrategy\BoxStrategy.ini', 'w') as configfile:
             configfile.write(
                 ';Set "FUEL / add" to "1" to ADD the fuel to the amount already in the tank or set to "0" to fill the tank up to the amount selected on the app.' + '\n')
             configfile.write(
@@ -169,41 +180,41 @@ def WritePreset():
             PresetConfig.write(configfile)
 
 def ReadPreset():
-    global Car, FixBody, FixEngine, FixSuspen, Preset, Tires, Gas
+    global track, car_model, TireCompund
 
     PresetConfig = configparser.ConfigParser()
-    PresetConfig.read('apps\python\BoxRadio\BoxRadio.ini')
+    PresetConfig.read('apps\python\BoxStrategy\BoxStrategy.ini')
 
-    if not 'PRESET' + str(Preset) + '_' + ac.getCarName(0) in PresetConfig:
+    if not str(track)  + '_' + ac.getCarName(0) in PresetConfig:
         WriteSection()
 
-    Car = PresetConfig['PRESET' + str(Preset) + '_' + ac.getCarName(0)]['car']
+    Car = PresetConfig[str(track)  + '_' + ac.getCarName(0)]['car']
 
     if Car == ac.getCarName(0):
-        ac.setValue(FuelSelection, int(PresetConfig['PRESET' + str(Preset) + '_' + str(Car)]['fuel']))
-        if PresetConfig['PRESET' + str(Preset) + '_' + str(Car)]['body'] == 'no':
+        ac.setValue(FuelSelection, int(PresetConfig[str(track)  + '_' + str(car_model) + '_' + str(TireCompund) ]['fuel']))
+        if PresetConfig[str(track)  + '_' + str(car_model) + '_' + str(TireCompund) ]['body'] == 'no':
             FixBody = 'yes'
         else:
             FixBody = 'no'
-        if PresetConfig['PRESET' + str(Preset) + '_' + str(Car)]['engine'] == 'no':
+        if PresetConfig[str(track)  + '_' + str(car_model) + '_' + str(TireCompund) ]['engine'] == 'no':
             FixEngine = 'yes'
         else:
             FixEngine = 'no'
-        if PresetConfig['PRESET' + str(Preset) + '_' + str(Car)]['suspen'] == 'no':
+        if PresetConfig[str(track)  + '_' + str(car_model) + '_' + str(TireCompund) ]['suspen'] == 'no':
             FixSuspen = 'yes'
         else:
             FixSuspen = 'no'
-        if PresetConfig['PRESET' + str(Preset) + '_' + str(Car)]['tyre'] == 'NoChange':
+        if PresetConfig[str(track)  + '_' + str(car_model) + '_' + str(TireCompund) ]['tyre'] == 'NoChange':
             NoChangeEvent('name', 0)
-        elif PresetConfig['PRESET' + str(Preset) + '_' + str(Car)]['tyre'] == 'Option1':
+        elif PresetConfig[str(track)  + '_' + str(car_model) + '_' + str(TireCompund) ]['tyre'] == 'Option1':
             Option1Event('name', 0)
-        elif PresetConfig['PRESET' + str(Preset) + '_' + str(Car)]['tyre'] == 'Option2':
+        elif PresetConfig[str(track)  + '_' + str(car_model) + '_' + str(TireCompund) ]['tyre'] == 'Option2':
             Option2Event('name', 0)
-        elif PresetConfig['PRESET' + str(Preset) + '_' + str(Car)]['tyre'] == 'Option3':
+        elif PresetConfig[str(track)  + '_' + str(car_model) + '_' + str(TireCompund) ]['tyre'] == 'Option3':
             Option3Event('name', 0)
-        elif PresetConfig['PRESET' + str(Preset) + '_' + str(Car)]['tyre'] == 'Option4':
+        elif PresetConfig[str(track)  + '_' + str(car_model) + '_' + str(TireCompund) ]['tyre'] == 'Option4':
             Option4Event('name', 0)
-        elif PresetConfig['PRESET' + str(Preset) + '_' + str(Car)]['tyre'] == 'Option5':
+        elif PresetConfig[str(track)  + '_' + str(car_model) + '_' + str(TireCompund) ]['tyre'] == 'Option5':
             Option5Event('name', 0)
     else:
         ac.setValue(FuelSelection, 0)
